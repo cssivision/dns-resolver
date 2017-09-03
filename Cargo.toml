@@ -1,6 +1,11 @@
 [package]
-name = "dns-future"
+name = "dns-resolver"
 version = "0.1.0"
 authors = ["cssivision <cssivision@gmail.com>"]
+license = "MIT"
+repository = "https://github.com/cssivision/dns-reolver"
+homepage = "https://github.com/cssivision/dns-reolver"
+description = "dns resolver based on future"
+readme = "README.md"
 
 [dependencies]

@@ -1,1 +1,1 @@
-# dns-future
+# dns-resolver
