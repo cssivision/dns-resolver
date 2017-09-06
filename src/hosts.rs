@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use std::fs;
-use std::ops::Add;
 use std::time::{Duration, SystemTime};
+use std::io::{BufRead, BufReader};
+use std::fs::File;
 
 lazy_static! {
     pub static ref HOSTS: Hosts = Hosts::new();
@@ -24,7 +25,7 @@ impl Hosts {
         let mut hosts = Hosts {
             by_name: HashMap::new(),
             by_addr: HashMap::new(),
-            expire: SystemTime::now().add(*CACHE_MAX_AGE),
+            expire: SystemTime::now() + *CACHE_MAX_AGE,
             path: path.clone(),
             mtime: SystemTime::now(),
             size: 0,
@@ -57,8 +58,20 @@ impl Hosts {
         if self.path == get_path() && self.mtime == meta.modified().unwrap_or(SystemTime::now()) &&
             self.size == meta.len()
         {
-            self.expire = now.add(*CACHE_MAX_AGE);
+            self.expire = now + *CACHE_MAX_AGE;
             return;
+        }
+
+        let f = if let Ok(f) = File::open(&self.path) {
+            f
+        } else {
+            return;
+        };
+
+        for line in BufReader::new(f).lines() {
+            if line.is_ok() {
+                println!("{}", line.unwrap());
+            }
         }
     }
 }
