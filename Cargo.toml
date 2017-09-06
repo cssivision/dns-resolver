@@ -9,3 +9,4 @@ description = "dns resolver based on future"
 readme = "README.md"
 
 [dependencies]
+lazy_static = "0.2"
