@@ -3,16 +3,16 @@ use std::fs;
 use std::time::{Duration, SystemTime};
 use std::io::{BufRead, BufReader};
 use std::fs::File;
+use std::net::{Ipv4Addr, Ipv6Addr};
 
 lazy_static! {
-    pub static ref HOSTS: Hosts = Hosts::new();
     static ref CACHE_MAX_AGE: Duration = Duration::new(5, 0);
 }
 
 #[derive(Debug)]
 pub struct Hosts {
-    by_name: HashMap<String, String>,
-    by_addr: HashMap<String, String>,
+    by_name: HashMap<String, Vec<String>>,
+    by_addr: HashMap<String, Vec<String>>,
     expire: SystemTime,
     path: String,
     mtime: SystemTime,
@@ -20,7 +20,7 @@ pub struct Hosts {
 }
 
 impl Hosts {
-    fn new() -> Hosts {
+    pub fn new() -> Hosts {
         let path = get_path();
         let mut hosts = Hosts {
             by_name: HashMap::new(),
@@ -31,13 +31,6 @@ impl Hosts {
             size: 0,
         };
 
-        let meta = if let Ok(meta) = fs::metadata(&path) {
-            meta
-        } else {
-            return hosts;
-        };
-        hosts.mtime = meta.modified().unwrap_or(SystemTime::now());
-        hosts.size = meta.len();
         hosts.update();
         hosts
     }
@@ -52,6 +45,7 @@ impl Hosts {
         let meta = if let Ok(meta) = fs::metadata(&self.path) {
             meta
         } else {
+            error!("update fail, {} not found", self.path);
             return;
         };
 
@@ -65,17 +59,46 @@ impl Hosts {
         let f = if let Ok(f) = File::open(&self.path) {
             f
         } else {
+            error!("update fail, open {} fail", self.path);
             return;
         };
 
         for line in BufReader::new(f).lines() {
-            if line.is_ok() {
-                println!("{}", line.unwrap());
+            let line = line.unwrap_or_default();
+            let line = if let Some(pos) = line.find('#') {
+                String::from(line.split_at(pos).0)
+            } else {
+                line
+            };
+            let line = line.trim();
+            if line.is_empty() {
+                continue;
             }
+
+            let fields: Vec<String> = line.split_whitespace().map(|s| s.to_string()).collect();
+            if fields.len() < 2 {
+                continue;
+            }
+            let addr = if let Some(a) = parse_literal_ip(fields[0].clone()) {
+                a
+            } else {
+                continue;
+            };
+
+            for i in 1..fields.len() {}
         }
     }
 }
 
 fn get_path() -> String {
     "/etc/hosts".to_string()
+}
+
+fn parse_literal_ip(addr: String) -> Option<String> {
+    let ip4 = addr.parse::<Ipv4Addr>();
+    let ip6 = addr.parse::<Ipv6Addr>();
+    if ip4.is_ok() || ip6.is_ok() {
+        return Some(addr);
+    }
+    None
 }

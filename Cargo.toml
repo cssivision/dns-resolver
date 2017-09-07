@@ -10,3 +10,4 @@ readme = "README.md"
 
 [dependencies]
 lazy_static = "0.2"
+log = "0.3"
