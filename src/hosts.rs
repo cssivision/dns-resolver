@@ -85,8 +85,29 @@ impl Hosts {
                 continue;
             };
 
-            for i in 1..fields.len() {}
+            for i in 1..fields.len() {
+                let key = fields[i].clone();
+
+                if self.by_addr.get_mut(&addr).is_none() {
+                    self.by_addr.insert(addr.clone(), Vec::new());
+                }
+                if let Some(val) = self.by_addr.get_mut(&addr) {
+                    val.push(key.clone());
+                }
+
+                if self.by_name.get_mut(&key).is_none() {
+                    self.by_name.insert(key.clone(), Vec::new());
+                }
+                if let Some(val) = self.by_name.get_mut(&key) {
+                    val.push(addr.clone());
+                }
+            }
         }
+
+        self.mtime = meta.modified().unwrap_or(SystemTime::now());
+        self.size = meta.len();
+        self.path = get_path();
+        self.expire = SystemTime::now() + *CACHE_MAX_AGE;
     }
 }
 
