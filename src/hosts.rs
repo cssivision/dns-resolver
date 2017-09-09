@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fs;
+use std::sync::Mutex;
 use std::time::{Duration, SystemTime};
 use std::io::{BufRead, BufReader};
 use std::fs::File;
@@ -7,7 +8,9 @@ use std::net::{Ipv4Addr, Ipv6Addr};
 
 lazy_static! {
     static ref CACHE_MAX_AGE: Duration = Duration::new(5, 0);
+    static ref HOSTS: Mutex<Hosts> = Mutex::new(Hosts::new());
 }
+
 
 #[derive(Debug)]
 pub struct Hosts {
@@ -79,28 +82,24 @@ impl Hosts {
             if fields.len() < 2 {
                 continue;
             }
-            let addr = if let Some(a) = parse_literal_ip(fields[0].clone()) {
+            let addr = if let Some(a) = parse_literal_ip(&fields[0]) {
                 a
             } else {
                 continue;
             };
 
             for i in 1..fields.len() {
-                let key = fields[i].clone();
+                let key = fields[i].clone().to_lowercase();
 
-                if self.by_addr.get_mut(&addr).is_none() {
-                    self.by_addr.insert(addr.clone(), Vec::new());
-                }
-                if let Some(val) = self.by_addr.get_mut(&addr) {
-                    val.push(key.clone());
-                }
+                self.by_addr
+                    .entry(addr.clone())
+                    .or_insert(Vec::new())
+                    .push(key.clone());
 
-                if self.by_name.get_mut(&key).is_none() {
-                    self.by_name.insert(key.clone(), Vec::new());
-                }
-                if let Some(val) = self.by_name.get_mut(&key) {
-                    val.push(addr.clone());
-                }
+                self.by_name
+                    .entry(key.clone())
+                    .or_insert(Vec::new())
+                    .push(addr.clone());
             }
         }
 
@@ -111,15 +110,51 @@ impl Hosts {
     }
 }
 
+// lookup_static_host looks up the addresses for the given host from /etc/hosts.
+pub fn lookup_static_host(host: &str) -> Option<Vec<String>> {
+    let mut hosts = HOSTS.lock().unwrap();
+    hosts.update();
+
+    let mut host = host.to_string();
+    if host.find(char::is_lowercase).is_some() {
+        host = host.to_lowercase();
+    }
+
+    if hosts.by_name.len() > 0 {
+        if let Some(val) = hosts.by_name.get(&host) {
+            return Some(val.clone());
+        }
+    }
+    None
+}
+
+// lookup_static_addr looks up the hosts for the given address from /etc/hosts.
+pub fn lookup_static_addr(addr: &str) -> Option<Vec<String>> {
+    let mut hosts = HOSTS.lock().unwrap();
+    hosts.update();
+    let ip_addr = if let Some(ip) = parse_literal_ip(addr) {
+        ip
+    } else {
+        return None;
+    };
+
+    if hosts.by_addr.len() > 0 {
+        if let Some(val) = hosts.by_addr.get(&ip_addr) {
+            return Some(val.clone());
+        }
+    }
+    None
+}
+
 fn get_path() -> String {
     "/etc/hosts".to_string()
 }
 
-fn parse_literal_ip(addr: String) -> Option<String> {
+fn parse_literal_ip(addr: &str) -> Option<String> {
     let ip4 = addr.parse::<Ipv4Addr>();
     let ip6 = addr.parse::<Ipv6Addr>();
     if ip4.is_ok() || ip6.is_ok() {
-        return Some(addr);
+        return Some(addr.to_string());
     }
     None
 }
