@@ -39,7 +39,6 @@ impl Hosts {
     }
 
     fn update(&mut self) {
-        println!("update");
         let now = SystemTime::now();
         if now < self.expire && self.path == get_path() && self.by_name.len() > 0 {
             return;
@@ -90,7 +89,7 @@ impl Hosts {
             };
 
             for i in 1..fields.len() {
-                let key = fields[i].clone().to_lowercase();
+                let key = fields[i].to_lowercase();
 
                 self.by_addr
                     .entry(addr.clone())
@@ -98,7 +97,7 @@ impl Hosts {
                     .push(key.clone());
 
                 self.by_name
-                    .entry(key.clone())
+                    .entry(key)
                     .or_insert(Vec::new())
                     .push(addr.clone());
             }
@@ -151,7 +150,7 @@ fn get_path() -> String {
     "/etc/hosts".to_string()
 }
 
-fn parse_literal_ip(addr: &str) -> Option<String> {
+pub fn parse_literal_ip(addr: &str) -> Option<String> {
     let ip4 = addr.parse::<Ipv4Addr>();
     let ip6 = addr.parse::<Ipv6Addr>();
     if ip4.is_ok() || ip6.is_ok() {
