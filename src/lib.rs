@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate lazy_static;
+extern crate libc;
 #[macro_use]
 extern crate log;
 
@@ -8,6 +9,7 @@ use std::io;
 mod hosts;
 mod resolve;
 mod dns_config;
+mod hostname;
 
 pub fn lookup_host(host: &str) -> Result<Vec<String>, io::Error> {
     if host.is_empty() {
