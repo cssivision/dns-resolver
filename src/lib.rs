@@ -4,12 +4,11 @@ extern crate lazy_static;
 extern crate log;
 
 mod hosts;
-use hosts::Hosts;
 
 pub fn lookup_host(host: String) {
-    let h = Hosts::new();
+    let hosts = hosts::HOSTS.lock().unwrap();
+    println!("{:?}", hosts);
     println!("{}", host);
-    println!("{:?}", h);
 }
 
 #[cfg(test)]

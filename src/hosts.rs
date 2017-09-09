@@ -8,7 +8,7 @@ use std::net::{Ipv4Addr, Ipv6Addr};
 
 lazy_static! {
     static ref CACHE_MAX_AGE: Duration = Duration::new(5, 0);
-    static ref HOSTS: Mutex<Hosts> = Mutex::new(Hosts::new());
+    pub static ref HOSTS: Mutex<Hosts> = Mutex::new(Hosts::new());
 }
 
 
@@ -39,6 +39,7 @@ impl Hosts {
     }
 
     fn update(&mut self) {
+        println!("update");
         let now = SystemTime::now();
         if now < self.expire && self.path == get_path() && self.by_name.len() > 0 {
             return;
