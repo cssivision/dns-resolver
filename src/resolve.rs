@@ -2,18 +2,32 @@ use std::io;
 use std::time::{Duration, SystemTime};
 
 use hosts::lookup_static_host;
+use dns_config::{read_config, DnsConfig};
 
 lazy_static! {
     pub static ref DEFAULT_RESOLVER: Resolver = Resolver::new();
+    static ref RESOLV_CONF: ResolverConfig = ResolverConfig::new();
 }
-
-#[derive(Debug)]
-pub struct Resolver {}
 
 #[derive(Debug)]
 struct ResolverConfig {
     last_checked: SystemTime,
+    dns_config: DnsConfig,
 }
+
+impl ResolverConfig {
+    fn new() -> ResolverConfig {
+        ResolverConfig {
+            dns_config: read_config("/etc/resolv.conf"),
+            last_checked: SystemTime::now(),
+        }
+    }
+
+    fn update(&self) {}
+}
+
+#[derive(Debug)]
+pub struct Resolver {}
 
 impl Resolver {
     pub fn new() -> Resolver {
