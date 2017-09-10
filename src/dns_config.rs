@@ -1,3 +1,5 @@
+//! Read system DNS config from /etc/resolv.conf
+
 use std::time::{Duration, SystemTime};
 use std::io;
 use std::fs::File;
@@ -7,8 +9,10 @@ use hostname::get_hostname;
 use hosts::parse_literal_ip;
 
 lazy_static! {
-    static ref DEFAULT_NS: Vec<String> = vec!["127.0.0.1:53".to_string(), "[::1]:53".to_string()];
+    static ref DEFAULT_DNS: Vec<String> = vec!["127.0.0.1:53".to_string(), "[::1]:53".to_string()];
 }
+
+static BIG: i32 = 0xFFFFFF;
 
 #[derive(Debug, Default)]
 pub struct DnsConfig {
@@ -43,7 +47,7 @@ pub fn read_config(filename: &str) -> DnsConfig {
             f
         }
         Err(e) => {
-            conf.servers = DEFAULT_NS.clone();
+            conf.servers = DEFAULT_DNS.clone();
             conf.servers = default_search();
             conf.err = Some(e);
             return conf;
@@ -60,7 +64,7 @@ pub fn read_config(filename: &str) -> DnsConfig {
             continue;
         }
 
-        let fields: Vec<&str> = line.split_whitespace().map(|s| s).collect();
+        let fields: Vec<&str> = line.split_whitespace().collect();
         if fields.len() < 1 {
             continue;
         }
@@ -79,22 +83,52 @@ pub fn read_config(filename: &str) -> DnsConfig {
             },
             "options" => for i in 1..fields.len() {
                 match fields[i] {
-                    s if s.starts_with("ndots:") => {}
-                    s if s.starts_with("timeout:") => {}
-                    s if s.starts_with("attempts:") => {}
-                    "rotate" => {}
+                    s if s.starts_with("ndots:") => {
+                        if let Some(s) = s.get(6..) {
+                            let mut n = dtoi(s).0;
+                            if n < 0 {
+                                n = 0;
+                            } else if n > 15 {
+                                n = 15;
+                            }
+                            conf.ndots = n;
+                        } else {
+                            debug!("invalid ndots");
+                        };
+                    }
+                    s if s.starts_with("timeout:") => if let Some(s) = s.get(8..) {
+                        let mut n = dtoi(s).0;
+                        if n < 1 {
+                            n = 1;
+                        }
+                        conf.timeout = Duration::new(n as u64, 0);
+                    },
+                    s if s.starts_with("attempts:") => if let Some(s) = s.get(9..) {
+                        let mut n = dtoi(s).0;
+                        if n < 1 {
+                            n = 1;
+                        }
+                        conf.attempts = n;
+                    },
+                    "rotate" => {
+                        conf.rotate = true;
+                    }
                     _ => {
                         conf.unknown_opt = true;
                     }
                 }
             },
-            "lookup" => {}
-            _ => {}
+            "lookup" => {
+                conf.lookup = fields[1..].iter().map(|x| x.to_string()).collect();
+            }
+            _ => {
+                conf.unknown_opt = true;
+            }
         }
     }
 
     if conf.servers.is_empty() {
-        conf.servers = DEFAULT_NS.clone();
+        conf.servers = DEFAULT_DNS.clone();
     }
 
     if conf.search.is_empty() {
@@ -102,6 +136,28 @@ pub fn read_config(filename: &str) -> DnsConfig {
     }
 
     conf
+}
+
+fn dtoi(s: &str) -> (i32, i32, bool) {
+    let mut i: i32 = 0;
+    let mut n: i32 = 0;
+    let chars = s.chars();
+    for c in chars {
+        if c < '0' || c > '9' {
+            break;
+        }
+        n = n * 10 + (c as u8 - '0' as u8) as i32;
+        if n >= BIG {
+            return (BIG, i, false);
+        }
+        i = i + 1;
+    }
+
+    if i == 0 {
+        return (0, 0, false);
+    }
+
+    (n, i, true)
 }
 
 fn ensure_rooted(s: &str) -> String {
