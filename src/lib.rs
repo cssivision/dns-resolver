@@ -7,7 +7,7 @@ extern crate log;
 use std::io;
 
 mod hosts;
-mod resolve;
+mod resolver;
 mod dns_config;
 mod hostname;
 
@@ -19,7 +19,7 @@ pub fn lookup_host(host: &str) -> Result<Vec<String>, io::Error> {
         return Ok(vec![host.to_string()]);
     }
 
-    if let Ok(addrs) = resolve::DEFAULT_RESOLVER.lookup_host(host) {
+    if let Ok(addrs) = resolver::DEFAULT_RESOLVER.lookup_host(host) {
         return Ok(addrs);
     };
     unimplemented!()
