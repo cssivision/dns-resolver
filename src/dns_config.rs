@@ -96,20 +96,28 @@ pub fn read_config(filename: &str) -> DnsConfig {
                             debug!("invalid ndots");
                         };
                     }
-                    s if s.starts_with("timeout:") => if let Some(s) = s.get(8..) {
-                        let mut n = dtoi(s).0;
-                        if n < 1 {
-                            n = 1;
-                        }
-                        conf.timeout = Duration::new(n as u64, 0);
-                    },
-                    s if s.starts_with("attempts:") => if let Some(s) = s.get(9..) {
-                        let mut n = dtoi(s).0;
-                        if n < 1 {
-                            n = 1;
-                        }
-                        conf.attempts = n;
-                    },
+                    s if s.starts_with("timeout:") => {
+                        if let Some(s) = s.get(8..) {
+                            let mut n = dtoi(s).0;
+                            if n < 1 {
+                                n = 1;
+                            }
+                            conf.timeout = Duration::new(n as u64, 0);
+                        } else {
+                            debug!("invalid timeout");
+                        };
+                    }
+                    s if s.starts_with("attempts:") => {
+                        if let Some(s) = s.get(9..) {
+                            let mut n = dtoi(s).0;
+                            if n < 1 {
+                                n = 1;
+                            }
+                            conf.attempts = n;
+                        } else {
+                            debug!("invalid attempts");
+                        };
+                    }
                     "rotate" => {
                         conf.rotate = true;
                     }
