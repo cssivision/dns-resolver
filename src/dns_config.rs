@@ -12,21 +12,39 @@ lazy_static! {
     static ref DEFAULT_DNS: Vec<String> = vec!["127.0.0.1:53".to_string(), "[::1]:53".to_string()];
 }
 
-static BIG: i32 = 0xFFFFFF;
-
 #[derive(Debug, Default)]
 pub struct DnsConfig {
-    servers: Vec<String>,      // server addresses (in host:port form) to use
-    search: Vec<String>,       // rooted suffixes to append to local name
-    ndots: i32,                // number of dots in name to trigger absolute lookup
-    timeout: Duration,         // wait before giving up on a query, including retries
-    attempts: i32,             // lost packets before giving up on server
-    rotate: bool,              // round robin among servers
-    unknown_opt: bool,         // anything unknown was encountered
-    lookup: Vec<String>,       // OpenBSD top-level database "lookup" order
-    err: Option<io::Error>,    // any error that occurs during open of resolv.conf
-    mtime: Option<SystemTime>, // time of resolv.conf modification
-    soffset: u32,              // used by serverOffset
+    pub servers: Vec<String>,      // server addresses (in host:port form) to use
+    pub search: Vec<String>,       // rooted suffixes to append to local name
+    pub ndots: i32,                // number of dots in name to trigger absolute lookup
+    pub timeout: Duration,         // wait before giving up on a query, including retries
+    pub attempts: i32,             // lost packets before giving up on server
+    pub rotate: bool,              // round robin among servers
+    pub unknown_opt: bool,         // anything unknown was encountered
+    pub lookup: Vec<String>,       // OpenBSD top-level database "lookup" order
+    pub err: Option<io::Error>,    // any error that occurs during open of resolv.conf
+    pub mtime: Option<SystemTime>, // time of resolv.conf modification
+    pub soffset: u32,              // used by serverOffset
+}
+
+impl DnsConfig {
+    // name_list returns a list of names for sequential DNS queries.
+    pub fn name_list(name: &str) -> Vec<String> {
+        if name.is_empty() {
+            return vec![];
+        }
+
+        let rooted = name.len() > 0 && name.ends_with('.');
+        if name.len() > 254 || name.len() == 254 && name.ends_with('.') {
+            return vec![];
+        }
+
+        if rooted {
+            return vec![name.to_string()];
+        }
+
+        vec![]
+    }
 }
 
 pub fn read_config(filename: &str) -> DnsConfig {
@@ -85,7 +103,7 @@ pub fn read_config(filename: &str) -> DnsConfig {
                 match fields[i] {
                     s if s.starts_with("ndots:") => {
                         if let Some(s) = s.get(6..) {
-                            let mut n = dtoi(s).0;
+                            let mut n = s.parse::<i32>().unwrap_or_default();
                             if n < 0 {
                                 n = 0;
                             } else if n > 15 {
@@ -98,18 +116,18 @@ pub fn read_config(filename: &str) -> DnsConfig {
                     }
                     s if s.starts_with("timeout:") => {
                         if let Some(s) = s.get(8..) {
-                            let mut n = dtoi(s).0;
+                            let mut n = s.parse::<u64>().unwrap_or_default();
                             if n < 1 {
                                 n = 1;
                             }
-                            conf.timeout = Duration::new(n as u64, 0);
+                            conf.timeout = Duration::new(n, 0);
                         } else {
                             debug!("invalid timeout");
                         };
                     }
                     s if s.starts_with("attempts:") => {
                         if let Some(s) = s.get(9..) {
-                            let mut n = dtoi(s).0;
+                            let mut n = s.parse::<i32>().unwrap_or_default();
                             if n < 1 {
                                 n = 1;
                             }
@@ -144,28 +162,6 @@ pub fn read_config(filename: &str) -> DnsConfig {
     }
 
     conf
-}
-
-fn dtoi(s: &str) -> (i32, i32, bool) {
-    let mut i: i32 = 0;
-    let mut n: i32 = 0;
-    let chars = s.chars();
-    for c in chars {
-        if c < '0' || c > '9' {
-            break;
-        }
-        n = n * 10 + (c as u8 - '0' as u8) as i32;
-        if n >= BIG {
-            return (BIG, i, false);
-        }
-        i = i + 1;
-    }
-
-    if i == 0 {
-        return (0, 0, false);
-    }
-
-    (n, i, true)
 }
 
 fn ensure_rooted(s: &str) -> String {
