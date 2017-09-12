@@ -187,12 +187,12 @@ fn default_search() -> Vec<String> {
     let hostname = if let Ok(hs) = get_hostname() {
         hs
     } else {
-        return Vec::new();
+        return vec![];
     };
 
     if let Some(pos) = hostname.find('.') {
         return vec![hostname[pos + 1..].to_string()];
     };
 
-    Vec::new()
+    vec![]
 }

@@ -10,6 +10,7 @@ mod hosts;
 mod resolver;
 mod dns_config;
 mod hostname;
+mod parse;
 
 pub fn lookup_host(host: &str) -> Result<Vec<String>, io::Error> {
     if host.is_empty() {
