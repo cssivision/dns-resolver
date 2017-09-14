@@ -12,6 +12,9 @@ lazy_static! {
     static ref RESOLV_CONF: Mutex<ResolverConfig> = Mutex::new(ResolverConfig::new());
 }
 
+static DNS_TYPEA: u32 = 1;
+static DNS_TYPEAAAA: u32 = 28;
+
 #[derive(Debug)]
 struct ResolverConfig {
     last_checked: SystemTime,
@@ -77,8 +80,27 @@ impl Resolver {
         let mut resolv_conf = RESOLV_CONF.lock().unwrap();
         resolv_conf.update();
         let conf = &resolv_conf.dns_config;
+        let query_types = vec![DNS_TYPEA, DNS_TYPEAAAA];
+        if let Some(list) = conf.name_list(name) {
+            for i in 0..query_types.len() {
+                self.try_one_name(conf, name, query_types[i])
+            }
+        };
         unimplemented!()
     }
+
+    fn try_one_name(&self, conf: &DnsConfig, name: &str, qtype: u32) {
+        let server_offset = conf.server_offset() as usize;
+
+        let s_len = conf.servers.len();
+        for i in 0..conf.attempts {
+            for j in 0..s_len {
+                let server = conf.servers[(server_offset + j) % s_len].clone();
+            }
+        }
+    }
+
+    fn exchange(&self, server: &str, name: &str, qtype: u32, timeout: Duration) {}
 }
 
 fn other(desc: &str) -> io::Error {

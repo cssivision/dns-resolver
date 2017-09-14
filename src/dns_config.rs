@@ -29,21 +29,46 @@ pub struct DnsConfig {
 
 impl DnsConfig {
     // name_list returns a list of names for sequential DNS queries.
-    pub fn name_list(name: &str) -> Vec<String> {
+    pub fn name_list(&self, name: &str) -> Option<Vec<String>> {
         if name.is_empty() {
-            return vec![];
+            return None;
         }
 
         let rooted = name.len() > 0 && name.ends_with('.');
         if name.len() > 254 || name.len() == 254 && name.ends_with('.') {
-            return vec![];
+            return None;
         }
 
         if rooted {
-            return vec![name.to_string()];
+            return Some(vec![name.to_string()]);
         }
 
-        vec![]
+        let has_ndots = name.matches('.').count() > self.ndots as usize;
+        let mut name = name.to_string();
+        name.push('.');
+
+        let mut names = vec![];
+        if has_ndots {
+            names.push(name.clone());
+        }
+
+        for suffix in self.search.iter() {
+            if name.len() + suffix.len() <= 254 {
+                names.push(name.clone() + suffix);
+            }
+        }
+        if !has_ndots {
+            names.push(name);
+        }
+        Some(names)
+    }
+
+    pub fn server_offset(&self) -> u32 {
+        if self.rotate {
+            self.soffset
+        } else {
+            0
+        }
     }
 }
 
