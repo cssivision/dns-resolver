@@ -101,6 +101,8 @@ impl Resolver {
     }
 
     fn exchange(&self, server: &str, name: &str, qtype: u32, timeout: Duration) {}
+
+    fn dial(&self) {}
 }
 
 fn other(desc: &str) -> io::Error {
