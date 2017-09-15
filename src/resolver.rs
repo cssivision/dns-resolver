@@ -5,15 +5,18 @@ use std::time::{Duration, SystemTime};
 
 use hosts::lookup_static_host;
 use dns_config::{read_config, DnsConfig};
+use dns_msg::{DNS_ClASSINET, DnsMsg, DnsMsgHeader, DnsQuestion, DNS_TYPEA, DNS_TYPEAAAA};
+
+use rand::{self, Rng};
+use tokio_core::net::TcpStream;
+use tokio_core::reactor::{Core, Remote};
+use futures::Future;
 
 lazy_static! {
     static ref CACHE_MAX_AGE: Duration = Duration::new(5, 0);
     pub static ref DEFAULT_RESOLVER: Resolver = Resolver::new();
     static ref RESOLV_CONF: Mutex<ResolverConfig> = Mutex::new(ResolverConfig::new());
 }
-
-static DNS_TYPEA: u32 = 1;
-static DNS_TYPEAAAA: u32 = 28;
 
 #[derive(Debug)]
 struct ResolverConfig {
@@ -55,11 +58,17 @@ impl ResolverConfig {
 }
 
 #[derive(Debug)]
-pub struct Resolver {}
+pub struct Resolver {
+    remote: Remote,
+}
 
 impl Resolver {
     pub fn new() -> Resolver {
-        Resolver {}
+        let core = Core::new().unwrap();
+
+        Resolver {
+            remote: core.remote(),
+        }
     }
 
     pub fn lookup_host(&self, host: &str) -> Result<Vec<String>, io::Error> {
@@ -100,7 +109,27 @@ impl Resolver {
         }
     }
 
-    fn exchange(&self, server: &str, name: &str, qtype: u32, timeout: Duration) {}
+    fn exchange(&self, server: &str, name: &str, qtype: u32, timeout: Duration) {
+        let mut out = DnsMsg {
+            header: DnsMsgHeader {
+                recursion_available: true,
+                ..Default::default()
+            },
+            question: vec![
+                DnsQuestion {
+                    name: name.to_string(),
+                    qtype: qtype as u16,
+                    qclass: DNS_ClASSINET as u16,
+                },
+            ],
+        };
+
+        let addr = server.parse().unwrap();
+        TcpStream::connect(&addr, &self.remote.handle().unwrap());
+
+        let mut rng = rand::thread_rng();
+        out.header.id = rng.gen::<u16>();
+    }
 
     fn dial(&self) {}
 }

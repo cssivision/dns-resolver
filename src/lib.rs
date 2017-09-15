@@ -1,8 +1,11 @@
+extern crate futures;
 #[macro_use]
 extern crate lazy_static;
 extern crate libc;
 #[macro_use]
 extern crate log;
+extern crate rand;
+extern crate tokio_core;
 
 use std::io;
 
