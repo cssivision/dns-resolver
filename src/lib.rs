@@ -6,6 +6,7 @@ extern crate libc;
 extern crate log;
 extern crate rand;
 extern crate tokio_core;
+extern crate tokio_timer;
 
 use std::io;
 
