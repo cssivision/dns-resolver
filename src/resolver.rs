@@ -2,17 +2,17 @@ use std::io;
 use std::fs;
 use std::sync::Mutex;
 use std::time::{Duration, SystemTime};
+use std::net::SocketAddr;
 
 use hosts::lookup_static_host;
 use dns_config::{read_config, DnsConfig};
 use dns_msg::{DNS_ClASSINET, DnsMsg, DnsMsgHeader, DnsQuestion, DNS_TYPEA, DNS_TYPEAAAA};
 
 use rand::{self, Rng};
-use tokio_core::net::TcpStream;
+use tokio_core::net::{TcpStream, UdpSocket};
 use tokio_core::reactor::{Core, Remote};
 use tokio_timer::Timer;
 use futures::Future;
-use futures::future::ok;
 
 lazy_static! {
     static ref CACHE_MAX_AGE: Duration = Duration::new(5, 0);
@@ -149,29 +149,13 @@ impl Resolver {
             ],
         };
 
-        for network in vec!["udp", "tcp"] {
-            self.dial(network, server, timeout);
-        }
+        let handle = self.remote.handle().unwrap();
+        let timer = Timer::default();
+        let addr = server.parse().unwrap();
+        let udp_conn = UdpSocket::bind(&"0.0.0.0:0".parse::<SocketAddr>().unwrap(), &handle);
 
         let mut rng = rand::thread_rng();
         out.header.id = rng.gen::<u16>();
-    }
-
-    fn dial(
-        &self,
-        typ: &str,
-        server: &str,
-        timeout: Duration,
-    ) -> Box<Future<Item = DnsPacket, Error = io::Error>> {
-        let timer = Timer::default();
-        let addr = server.parse().unwrap();
-        let tcp_conn = TcpStream::connect(&addr, &self.remote.handle().unwrap());
-        let tcp_timeout = timer
-            .timeout(tcp_conn, timeout)
-            .map_err(|_| other("dial timeout"));
-
-        let d = DnsPacket {};
-        Box::new(ok(d))
     }
 }
 
