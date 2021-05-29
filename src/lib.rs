@@ -1,21 +1,11 @@
-extern crate futures;
-#[macro_use]
-extern crate lazy_static;
-extern crate libc;
-#[macro_use]
-extern crate log;
-extern crate rand;
-extern crate tokio_core;
-extern crate tokio_timer;
-
 use std::io;
 
-mod hosts;
-mod resolver;
 mod dns_config;
-mod hostname;
-mod parse;
 mod dns_msg;
+mod hostname;
+mod hosts;
+mod parse;
+mod resolver;
 
 pub fn lookup_host(host: &str) -> Result<Vec<String>, io::Error> {
     if host.is_empty() {

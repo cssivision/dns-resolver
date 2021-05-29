@@ -7,10 +7,11 @@ repository = "https://github.com/cssivision/dns-reolver"
 homepage = "https://github.com/cssivision/dns-reolver"
 description = "dns resolver based on future"
 readme = "README.md"
+edition = "2018"
 
 [dependencies]
-lazy_static = "0.2"
-log = "0.3"
+lazy_static = "1.0"
+log = "0.4"
 libc = "0.2"
 rand = "0.3"
 tokio-core = "0.1"

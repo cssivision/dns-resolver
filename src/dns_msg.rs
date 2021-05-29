@@ -1,4 +1,3 @@
-
 pub static DNS_TYPEA: u32 = 1;
 pub static DNS_TYPEAAAA: u32 = 28;
 pub static DNS_ClASSINET: u32 = 1;
@@ -54,7 +53,7 @@ pub struct DnsMsg {
 
 impl DnsMsg {
     fn pack(&self) -> Option<Vec<u8>> {
-        let dh = DnsHeader {
+        let mut dh = DnsHeader {
             id: self.header.id,
             bits: (self.header.opcode << 11 | self.header.rcode) as u16,
             ..Default::default()
@@ -71,8 +70,7 @@ impl DnsMsg {
         if self.header.response {
             dh.bits |= QR;
         }
-        let question = self.question;
-        let answer = self.answer;
+
         None
     }
 }

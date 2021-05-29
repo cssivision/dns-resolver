@@ -1,16 +1,18 @@
 use std::collections::HashMap;
 use std::fs;
+use std::fs::File;
+use std::io::{BufRead, BufReader};
+use std::net::{Ipv4Addr, Ipv6Addr};
 use std::sync::Mutex;
 use std::time::{Duration, SystemTime};
-use std::io::{BufRead, BufReader};
-use std::fs::File;
-use std::net::{Ipv4Addr, Ipv6Addr};
+
+use lazy_static::lazy_static;
+use log::error;
 
 lazy_static! {
     static ref CACHE_MAX_AGE: Duration = Duration::new(5, 0);
     pub static ref HOSTS: Mutex<Hosts> = Mutex::new(Hosts::new());
 }
-
 
 #[derive(Debug)]
 pub struct Hosts {
@@ -52,8 +54,9 @@ impl Hosts {
             return;
         };
 
-        if self.path == get_path() && self.mtime == meta.modified().unwrap_or(SystemTime::now()) &&
-            self.size == meta.len()
+        if self.path == get_path()
+            && self.mtime == meta.modified().unwrap_or(SystemTime::now())
+            && self.size == meta.len()
         {
             self.expire = now + *CACHE_MAX_AGE;
             return;

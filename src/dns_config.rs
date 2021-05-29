@@ -1,12 +1,15 @@
 //! Read system DNS config from /etc/resolv.conf
 
-use std::time::{Duration, SystemTime};
-use std::io;
 use std::fs::File;
+use std::io;
 use std::io::{BufRead, BufReader};
+use std::time::{Duration, SystemTime};
 
-use hostname::get_hostname;
-use hosts::parse_literal_ip;
+use crate::hostname::get_hostname;
+use crate::hosts::parse_literal_ip;
+
+use lazy_static::lazy_static;
+use log::debug;
 
 lazy_static! {
     static ref DEFAULT_DNS: Vec<String> = vec!["127.0.0.1:53".to_string(), "[::1]:53".to_string()];
@@ -113,62 +116,70 @@ pub fn read_config(filename: &str) -> DnsConfig {
         }
 
         match fields[0] {
-            "nameserver" => if fields.len() > 1 && conf.servers.len() < 3 {
-                if let Some(_) = parse_literal_ip(fields[1]) {
-                    conf.servers.push(join_host_port(fields[1], "53"));
-                }
-            },
-            "domain" => if fields.len() > 1 && fields[1].len() > 0 {
-                conf.servers.push(ensure_rooted(fields[1]));
-            },
-            "search" => for i in 1..fields.len() {
-                conf.search.push(ensure_rooted(fields[i]));
-            },
-            "options" => for i in 1..fields.len() {
-                match fields[i] {
-                    s if s.starts_with("ndots:") => {
-                        if let Some(s) = s.get(6..) {
-                            let mut n = s.parse::<i32>().unwrap_or_default();
-                            if n < 0 {
-                                n = 0;
-                            } else if n > 15 {
-                                n = 15;
-                            }
-                            conf.ndots = n;
-                        } else {
-                            debug!("invalid ndots");
-                        };
-                    }
-                    s if s.starts_with("timeout:") => {
-                        if let Some(s) = s.get(8..) {
-                            let mut n = s.parse::<u64>().unwrap_or_default();
-                            if n < 1 {
-                                n = 1;
-                            }
-                            conf.timeout = Duration::new(n, 0);
-                        } else {
-                            debug!("invalid timeout");
-                        };
-                    }
-                    s if s.starts_with("attempts:") => {
-                        if let Some(s) = s.get(9..) {
-                            let mut n = s.parse::<i32>().unwrap_or_default();
-                            if n < 1 {
-                                n = 1;
-                            }
-                            conf.attempts = n;
-                        } else {
-                            debug!("invalid attempts");
-                        };
-                    }
-                    "rotate" => {
-                        conf.rotate = true;
-                    }
-                    _ => {
-                        conf.unknown_opt = true;
+            "nameserver" => {
+                if fields.len() > 1 && conf.servers.len() < 3 {
+                    if let Some(_) = parse_literal_ip(fields[1]) {
+                        conf.servers.push(join_host_port(fields[1], "53"));
                     }
                 }
-            },
+            }
+            "domain" => {
+                if fields.len() > 1 && fields[1].len() > 0 {
+                    conf.servers.push(ensure_rooted(fields[1]));
+                }
+            }
+            "search" => {
+                for i in 1..fields.len() {
+                    conf.search.push(ensure_rooted(fields[i]));
+                }
+            }
+            "options" => {
+                for i in 1..fields.len() {
+                    match fields[i] {
+                        s if s.starts_with("ndots:") => {
+                            if let Some(s) = s.get(6..) {
+                                let mut n = s.parse::<i32>().unwrap_or_default();
+                                if n < 0 {
+                                    n = 0;
+                                } else if n > 15 {
+                                    n = 15;
+                                }
+                                conf.ndots = n;
+                            } else {
+                                debug!("invalid ndots");
+                            };
+                        }
+                        s if s.starts_with("timeout:") => {
+                            if let Some(s) = s.get(8..) {
+                                let mut n = s.parse::<u64>().unwrap_or_default();
+                                if n < 1 {
+                                    n = 1;
+                                }
+                                conf.timeout = Duration::new(n, 0);
+                            } else {
+                                debug!("invalid timeout");
+                            };
+                        }
+                        s if s.starts_with("attempts:") => {
+                            if let Some(s) = s.get(9..) {
+                                let mut n = s.parse::<i32>().unwrap_or_default();
+                                if n < 1 {
+                                    n = 1;
+                                }
+                                conf.attempts = n;
+                            } else {
+                                debug!("invalid attempts");
+                            };
+                        }
+                        "rotate" => {
+                            conf.rotate = true;
+                        }
+                        _ => {
+                            conf.unknown_opt = true;
+                        }
+                    }
+                }
+            }
             "lookup" => {
                 conf.lookup = fields[1..].iter().map(|x| x.to_string()).collect();
             }
@@ -206,7 +217,6 @@ fn join_host_port(host: &str, port: &str) -> String {
 
     format!("{}:{}", host, port)
 }
-
 
 fn default_search() -> Vec<String> {
     let hostname = if let Ok(hs) = get_hostname() {

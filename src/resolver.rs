@@ -1,18 +1,19 @@
-use std::io;
 use std::fs;
+use std::io;
+use std::net::SocketAddr;
 use std::sync::Mutex;
 use std::time::{Duration, SystemTime};
-use std::net::SocketAddr;
 
-use hosts::lookup_static_host;
-use dns_config::{read_config, DnsConfig};
-use dns_msg::{DNS_ClASSINET, DnsMsg, DnsMsgHeader, DnsQuestion, DNS_TYPEA, DNS_TYPEAAAA};
+use crate::dns_config::{read_config, DnsConfig};
+use crate::dns_msg::{DNS_ClASSINET, DnsMsg, DnsMsgHeader, DnsQuestion, DNS_TYPEA, DNS_TYPEAAAA};
+use crate::hosts::lookup_static_host;
 
+use lazy_static::lazy_static;
+use log::error;
 use rand::{self, Rng};
-use tokio_core::net::{TcpStream, UdpSocket};
+use tokio_core::net::UdpSocket;
 use tokio_core::reactor::{Core, Remote};
 use tokio_timer::Timer;
-use futures::Future;
 
 lazy_static! {
     static ref CACHE_MAX_AGE: Duration = Duration::new(5, 0);
@@ -140,18 +141,16 @@ impl Resolver {
                 recursion_available: true,
                 ..Default::default()
             },
-            question: vec![
-                DnsQuestion {
-                    name: name.to_string(),
-                    qtype: qtype as u16,
-                    qclass: DNS_ClASSINET as u16,
-                },
-            ],
+            question: vec![DnsQuestion {
+                name: name.to_string(),
+                qtype: qtype as u16,
+                qclass: DNS_ClASSINET as u16,
+            }],
         };
 
         let handle = self.remote.handle().unwrap();
         let timer = Timer::default();
-        let addr = server.parse().unwrap();
+        let addr: SocketAddr = server.parse().unwrap();
         let udp_conn = UdpSocket::bind(&"0.0.0.0:0".parse::<SocketAddr>().unwrap(), &handle);
 
         let mut rng = rand::thread_rng();
