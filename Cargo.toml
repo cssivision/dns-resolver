@@ -10,11 +10,6 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-lazy_static = "1.0"
-log = "0.4"
-libc = "0.2"
-rand = "0.3"
-tokio-core = "0.1"
-tokio-io = "0.1"
-tokio-timer = "0.1"
-futures = "0.1"
+slings = "0.2"
+dnssector = "0.2"
+resolv-conf = { version = "0.7.0", features = ["system"] }
