@@ -13,27 +13,20 @@ use slings::time::timeout;
 use slings::{AsyncReadExt, AsyncWriteExt};
 
 #[derive(Clone, Debug)]
-pub struct UpstreamServer {
-    pub addr: SocketAddr,
-}
-
-impl UpstreamServer {
-    pub fn new<T: Into<SocketAddr>>(addr: T) -> Self {
-        UpstreamServer { addr: addr.into() }
-    }
-}
-
-#[derive(Clone, Debug)]
 pub struct Resolver {
-    servers: Vec<UpstreamServer>,
+    servers: Vec<SocketAddr>,
     timeout: Duration,
 }
 
+fn invalid_input(msg: &str) -> io::Error {
+    io::Error::new(io::ErrorKind::InvalidInput, msg)
+}
+
 impl Resolver {
-    pub fn new() -> Self {
+    pub fn new(addr: SocketAddr) -> Self {
         Resolver {
-            servers: vec![],
-            timeout: Duration::new(5, 0),
+            servers: vec![addr],
+            timeout: Duration::from_secs(3),
         }
     }
 
@@ -44,48 +37,37 @@ impl Resolver {
         question: &Option<(Vec<u8>, u16, u16)>,
         query: &[u8],
     ) -> io::Result<ParsedPacket> {
-        // UDP
-        let mut response = timeout(self.timeout, query_upstream_udp(query, &addr)).await??;
-        if response.flags() & DNS_FLAG_TC == DNS_FLAG_TC {
-            response = timeout(self.timeout, query_upstream_tcp(query, &addr)).await??;
+        let mut res = timeout(self.timeout, query_upstream_udp(query, &addr)).await??;
+        if res.flags() & DNS_FLAG_TC == DNS_FLAG_TC {
+            res = timeout(self.timeout, query_upstream_tcp(query, &addr)).await??;
         }
-        if response.tid() != tid || &response.question() != question {
+        if res.tid() != tid || &res.question() != question {
             return Err(io::Error::new(
                 io::ErrorKind::PermissionDenied,
                 "Unexpected response",
             ));
         }
-        Ok(response)
+        Ok(res)
     }
 
     async fn query_packet(&self, mut query: ParsedPacket) -> io::Result<ParsedPacket> {
         let tid = query.tid();
         let question = query.question();
         if question.is_none() || query.flags() & DNS_FLAG_QR != 0 {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "No DNS question",
-            ));
+            return Err(invalid_input("No DNS question"));
         }
-        let valid_query = query.into_packet();
+        let query = query.into_packet();
         for server in &self.servers {
-            if let Ok(res) = self
-                .query_upstream(&server.addr, tid, &question, &valid_query)
-                .await
-            {
+            if let Ok(res) = self.query_upstream(&server, tid, &question, &query).await {
                 return Ok(res);
             }
         }
-
-        Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "No response received from any servers",
-        ))
+        Err(invalid_input("No response received from any servers"))
     }
 
     pub async fn query_a(&self, name: &str) -> io::Result<Vec<Ipv4Addr>> {
         let query = dnssector::gen::query(name.as_bytes(), Type::A, Class::IN)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e.to_string()))?;
+            .map_err(|e| invalid_input(&e.to_string()))?;
         let mut res = self.query_packet(query).await?;
         let mut ips = vec![];
         for item in res.into_iter_answer().into_iter() {
@@ -98,7 +80,7 @@ impl Resolver {
 
     pub async fn query_aaaa(&self, name: &str) -> io::Result<Vec<Ipv6Addr>> {
         let query = dnssector::gen::query(name.as_bytes(), Type::AAAA, Class::IN)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e.to_string()))?;
+            .map_err(|e| invalid_input(&e.to_string()))?;
         let mut res = self.query_packet(query).await?;
         let mut ips = vec![];
         for item in res.into_iter_answer().into_iter() {
@@ -121,9 +103,9 @@ async fn query_upstream_udp(query: &[u8], addr: &SocketAddr) -> io::Result<Parse
         .map_err(|_| io::Error::new(io::ErrorKind::WouldBlock, "Timeout"))?;
     response.truncate(n);
     DNSSector::new(response)
-        .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e.to_string()))?
+        .map_err(|e| invalid_input(&e.to_string()))?
         .parse()
-        .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e.to_string()))
+        .map_err(|e| invalid_input(&e.to_string()))
 }
 
 async fn query_upstream_tcp(query: &[u8], addr: &SocketAddr) -> io::Result<ParsedPacket> {
@@ -141,7 +123,7 @@ async fn query_upstream_tcp(query: &[u8], addr: &SocketAddr) -> io::Result<Parse
     let mut response = vec![0; response_len];
     stream.read_exact(&mut response).await?;
     DNSSector::new(response)
-        .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e.to_string()))?
+        .map_err(|e| invalid_input(&e.to_string()))?
         .parse()
-        .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e.to_string()))
+        .map_err(|e| invalid_input(&e.to_string()))
 }
