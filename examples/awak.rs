@@ -3,8 +3,9 @@ use std::io;
 
 #[cfg(feature = "awak-runtime")]
 fn main() -> io::Result<()> {
+    let resolver = Resolver::new();
+
     awak::block_on(async {
-        let resolver = Resolver::new();
         let ips = resolver.lookup_host("baidu.com").await?;
         println!("ips: {:?}", ips);
         Ok(())

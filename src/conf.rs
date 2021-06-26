@@ -1,10 +1,10 @@
 use std::fs::File;
-use std::io::Read;
+use std::io::{self, Read};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::ops;
 use std::path::Path;
 use std::str::FromStr;
 use std::time::Duration;
-use std::{io, ops};
 
 use domain::base::name::Dname;
 
