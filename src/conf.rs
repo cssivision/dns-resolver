@@ -171,7 +171,7 @@ impl ResolvConf {
         for search_domain in parsed_config.get_last_search_or_domain() {
             self.options
                 .search
-                .push(SearchSuffix::from_str(&search_domain).map_err(|e| {
+                .push(SearchSuffix::from_str(search_domain).map_err(|e| {
                     io::Error::new(
                         io::ErrorKind::Other,
                         format!("Error parsing resolv.conf: {:?}", e),
