@@ -147,10 +147,10 @@ impl ResolvConf {
         let mut file = File::open(path)?;
         file.read_to_string(&mut data)?;
         let parsed_config = parse_resolv_conf(&data)?;
-        self.into_resolver_config(parsed_config)
+        self.fill(parsed_config)
     }
 
-    fn into_resolver_config(&mut self, parsed_config: resolv_conf::Config) -> io::Result<()> {
+    fn fill(&mut self, parsed_config: resolv_conf::Config) -> io::Result<()> {
         let domain = parsed_config.get_system_domain().unwrap_or_default();
         let domain = SearchSuffix::from_str(&domain).map_err(|e| {
             io::Error::new(

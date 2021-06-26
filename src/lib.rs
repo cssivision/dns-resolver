@@ -91,17 +91,15 @@ impl Resolver {
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
         let answer = self.query((&qname, Rtype::A)).await?;
         let name = answer.canonical_name();
-        let mut records = answer
+        let records = answer
             .answer()
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?
             .limit_to::<A>();
 
         let mut ips = vec![];
-        while let Some(res) = records.next() {
-            if let Ok(record) = res {
-                if Some(*record.owner()) == name {
-                    ips.push(record.data().addr().into());
-                }
+        for record in records.flatten() {
+            if Some(*record.owner()) == name {
+                ips.push(record.data().addr().into());
             }
         }
         self.insert_into_cache(host, ips.clone());
@@ -334,7 +332,7 @@ impl ServerInfo {
             let len = u16::from_be_bytes(len_buf) as u64;
             let mut buf = Vec::new();
             sock.take(len).read_to_end(&mut buf).await?;
-            if let Ok(answer) = Message::from_octets(buf.into()) {
+            if let Ok(answer) = Message::from_octets(buf) {
                 if answer.is_answer(&query.as_message()) {
                     return Ok(answer.into());
                 }
@@ -359,7 +357,7 @@ impl ServerInfo {
             let mut buf = vec![0; recv_size];
             let len = sock.recv(&mut buf).await?;
             buf.truncate(len);
-            let answer = match Message::from_octets(buf.into()) {
+            let answer = match Message::from_octets(buf) {
                 Ok(answer) => answer,
                 Err(_) => continue,
             };
