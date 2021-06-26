@@ -39,11 +39,12 @@ use conf::{ServerConf, Transport};
 
 const RETRY_RANDOM_PORT: usize = 10;
 
+#[derive(Clone)]
 pub struct Resolver {
     preferred: ServerList,
     stream: ServerList,
     options: ResolvOptions,
-    lru_cache: Mutex<LruCache<String, Vec<IpAddr>>>,
+    lru_cache: Arc<Mutex<LruCache<String, Vec<IpAddr>>>>,
 }
 
 impl Resolver {
@@ -56,7 +57,9 @@ impl Resolver {
             preferred: ServerList::from_conf(&conf, |s| s.transport.is_preferred()),
             stream: ServerList::from_conf(&conf, |s| s.transport.is_stream()),
             options: conf.options,
-            lru_cache: Mutex::new(LruCache::with_expiry_duration(DEFAULT_CACHE_EXPIRE)),
+            lru_cache: Arc::new(Mutex::new(LruCache::with_expiry_duration(
+                DEFAULT_CACHE_EXPIRE,
+            ))),
         }
     }
 
@@ -327,7 +330,6 @@ impl ServerInfo {
 
         loop {
             let mut len_buf = [0u8; 2];
-            println!("len: {}", len_buf.len());
             sock.read_exact(&mut len_buf).await?;
             let len = u16::from_be_bytes(len_buf) as u64;
             let mut buf = Vec::new();
