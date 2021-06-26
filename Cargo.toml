@@ -11,5 +11,5 @@ edition = "2018"
 
 [dependencies]
 slings = "0.2"
-dnssector = "0.2"
+domain = "0.6"
 resolv-conf = { version = "0.7.0", features = ["system"] }
