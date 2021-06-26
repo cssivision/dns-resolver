@@ -16,6 +16,6 @@ domain = "0.6"
 resolv-conf = { version = "0.7.0", features = ["system"] }
 
 [features]
-default = ["slings"]
+default = ["slings-runtime"]
 slings-runtime = ["slings"]
 awak-runtime = ["awak"]
