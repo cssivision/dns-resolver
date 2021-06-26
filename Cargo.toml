@@ -10,6 +10,12 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-slings = "0.2"
+slings = { version = "0.2", optional = true }
+awak = { version = "0.2", optional = true }
 domain = "0.6"
 resolv-conf = { version = "0.7.0", features = ["system"] }
+
+[features]
+default = ["slings"]
+slings-runtime = ["slings"]
+awak-runtime = ["awak"]

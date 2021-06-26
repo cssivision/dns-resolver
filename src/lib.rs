@@ -12,9 +12,20 @@ use domain::base::name::{Dname, ToDname};
 use domain::base::octets::Octets512;
 use domain::base::question::Question;
 use domain::rdata::A;
-use slings::net::{TcpStream, UdpSocket};
-use slings::time::timeout;
-use slings::{AsyncReadExt, AsyncWriteExt};
+
+#[cfg(feature = "slings-runtime")]
+use slings::{
+    net::{TcpStream, UdpSocket},
+    time::timeout,
+    AsyncReadExt, AsyncWriteExt,
+};
+
+#[cfg(feature = "awak-runtime")]
+use awak::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    net::{TcpStream, UdpSocket},
+    time::timeout,
+};
 
 mod conf;
 
@@ -218,14 +229,12 @@ pub struct Answer {
 }
 
 impl Answer {
-    /// Returns whether the answer is a final answer to be returned.
     pub fn is_final(&self) -> bool {
         (self.message.header().rcode() == Rcode::NoError
             || self.message.header().rcode() == Rcode::NXDomain)
             && !self.message.header().tc()
     }
 
-    /// Returns whether the answer is truncated.
     pub fn is_truncated(&self) -> bool {
         self.message.header().tc()
     }
@@ -375,8 +384,6 @@ impl<'a> From<&'a ServerConf> for ServerInfo {
         conf.clone().into()
     }
 }
-
-//------------ ServerList ----------------------------------------------------
 
 #[derive(Clone, Debug)]
 struct ServerList {
