@@ -17,6 +17,7 @@ use domain::rdata::A;
 use lru_time_cache::LruCache;
 
 const DEFAULT_CACHE_EXPIRE: Duration = Duration::from_secs(10 * 60);
+const DEFAULT_CACHE_CAPACITY: usize = 1024;
 
 #[cfg(feature = "slings-runtime")]
 use slings::{
@@ -57,8 +58,9 @@ impl Resolver {
             preferred: ServerList::from_conf(&conf, |s| s.transport.is_preferred()),
             stream: ServerList::from_conf(&conf, |s| s.transport.is_stream()),
             options: conf.options,
-            lru_cache: Arc::new(Mutex::new(LruCache::with_expiry_duration(
+            lru_cache: Arc::new(Mutex::new(LruCache::with_expiry_duration_and_capacity(
                 DEFAULT_CACHE_EXPIRE,
+                DEFAULT_CACHE_CAPACITY,
             ))),
         }
     }
