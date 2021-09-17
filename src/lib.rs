@@ -27,6 +27,13 @@ use awak::{
     time::timeout,
 };
 
+#[cfg(feature = "tokio-runtime")]
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    net::{TcpStream, UdpSocket},
+    time::timeout,
+};
+
 mod conf;
 
 pub use conf::{ResolvConf, ResolvOptions};
@@ -327,6 +334,9 @@ impl ServerInfo {
         recv_size: usize,
     ) -> io::Result<Answer> {
         let sock = Self::udp_bind(addr.is_ipv4()).await?;
+        #[cfg(feature = "tokio-runtime")]
+        sock.connect(addr).await?;
+        #[cfg(not(feature = "tokio-runtime"))]
         sock.connect(addr)?;
         let sent = sock.send(query.as_target().as_dgram_slice()).await?;
         if sent != query.as_target().as_dgram_slice().len() {
@@ -355,7 +365,11 @@ impl ServerInfo {
             } else {
                 ([0u16; 8], 0).into()
             };
-            match UdpSocket::bind(&local) {
+            #[cfg(feature = "tokio-runtime")]
+            let binder = UdpSocket::bind(&local).await;
+            #[cfg(not(feature = "tokio-runtime"))]
+            let binder = UdpSocket::bind(&local);
+            match binder {
                 Ok(sock) => return Ok(sock),
                 Err(err) => {
                     if i == RETRY_RANDOM_PORT {
