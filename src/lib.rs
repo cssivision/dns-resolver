@@ -337,7 +337,7 @@ impl ServerInfo {
         #[cfg(feature = "tokio-runtime")]
         sock.connect(addr).await?;
         #[cfg(not(feature = "tokio-runtime"))]
-        sock.connect(addr)?;
+        sock.connect(addr).await?;
         let sent = sock.send(query.as_target().as_dgram_slice()).await?;
         if sent != query.as_target().as_dgram_slice().len() {
             return Err(io::Error::new(io::ErrorKind::Other, "short UDP send"));
