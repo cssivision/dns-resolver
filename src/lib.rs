@@ -13,7 +13,7 @@ use domain::base::octets::Octets512;
 use domain::base::question::Question;
 use domain::rdata::A;
 
-#[cfg(feature = "slings-runtime")]
+#[cfg(not(feature = "tokio-runtime"))]
 use futures_util::{AsyncReadExt, AsyncWriteExt};
 #[cfg(feature = "slings-runtime")]
 use slings::{
@@ -23,7 +23,6 @@ use slings::{
 
 #[cfg(feature = "awak-runtime")]
 use awak::{
-    io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpStream, UdpSocket},
     time::timeout,
 };
