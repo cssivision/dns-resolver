@@ -14,10 +14,11 @@ use domain::base::question::Question;
 use domain::rdata::A;
 
 #[cfg(feature = "slings-runtime")]
+use futures_util::{AsyncReadExt, AsyncWriteExt};
+#[cfg(feature = "slings-runtime")]
 use slings::{
     net::{TcpStream, UdpSocket},
     time::timeout,
-    AsyncReadExt, AsyncWriteExt,
 };
 
 #[cfg(feature = "awak-runtime")]

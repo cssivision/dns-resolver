@@ -1,6 +1,6 @@
 [package]
 name = "dns-resolver"
-version = "0.2.7"
+version = "0.2.8"
 authors = ["cssivision <cssivision@gmail.com>"]
 license = "MIT"
 repository = "https://github.com/cssivision/dns-reolver"
@@ -12,13 +12,14 @@ edition = "2018"
 [dependencies]
 slings = { version = "0.3", optional = true }
 awak = { version = "0.2", optional = true }
-tokio = { version = "1", optional = true, features = ["net", "io-util", "time"] }
+tokio = { version = "1", features = ["net", "io-util", "time"], optional = true }
 domain = "0.6"
 resolv-conf = { version = "0.7.0", features = ["system"] }
+futures-util = { version = "0.3", default-features = false, features = ["io"], optional = true }
 
 [features]
 default = ["slings-runtime"]
-slings-runtime = ["slings"]
+slings-runtime = ["slings", "futures-util"]
 awak-runtime = ["awak"]
 tokio-runtime = ["tokio"]
 
