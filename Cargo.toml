@@ -20,6 +20,6 @@ futures-util = { version = "0.3", default-features = false, features = ["io"], o
 [features]
 default = ["slings-runtime"]
 slings-runtime = ["slings", "futures-util"]
-awak-runtime = ["awak"]
+awak-runtime = ["awak", "futures-util"]
 tokio-runtime = ["tokio"]
 

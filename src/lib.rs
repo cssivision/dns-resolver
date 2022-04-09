@@ -15,6 +15,7 @@ use domain::rdata::A;
 
 #[cfg(not(feature = "tokio-runtime"))]
 use futures_util::{AsyncReadExt, AsyncWriteExt};
+
 #[cfg(feature = "slings-runtime")]
 use slings::{
     net::{TcpStream, UdpSocket},
@@ -334,10 +335,10 @@ impl ServerInfo {
         recv_size: usize,
     ) -> io::Result<Answer> {
         let sock = Self::udp_bind(addr.is_ipv4()).await?;
-        #[cfg(feature = "tokio-runtime")]
+        #[cfg(not(feature = "awak-runtime"))]
         sock.connect(addr).await?;
-        #[cfg(not(feature = "tokio-runtime"))]
-        sock.connect(addr).await?;
+        #[cfg(feature = "awak-runtime")]
+        sock.connect(addr)?;
         let sent = sock.send(query.as_target().as_dgram_slice()).await?;
         if sent != query.as_target().as_dgram_slice().len() {
             return Err(io::Error::new(io::ErrorKind::Other, "short UDP send"));
