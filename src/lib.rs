@@ -3,7 +3,8 @@ use std::net::{IpAddr, SocketAddr};
 use std::ops::Deref;
 use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use domain::base::iana::{Rcode, Rtype};
 use domain::base::message::Message;
@@ -12,6 +13,9 @@ use domain::base::name::{Dname, ToDname};
 use domain::base::octets::Octets512;
 use domain::base::question::Question;
 use domain::rdata::A;
+use lru_time_cache::LruCache;
+
+const DEFAULT_CACHE_EXPIRE: Duration = Duration::from_secs(10 * 60);
 
 #[cfg(not(feature = "tokio-runtime"))]
 use futures_util::{AsyncReadExt, AsyncWriteExt};
@@ -42,11 +46,11 @@ use conf::{ServerConf, Transport};
 
 const RETRY_RANDOM_PORT: usize = 10;
 
-#[derive(Clone)]
 pub struct Resolver {
     preferred: ServerList,
     stream: ServerList,
     options: ResolvOptions,
+    lru_cache: Mutex<LruCache<String, Vec<IpAddr>>>,
 }
 
 impl Resolver {
@@ -59,6 +63,7 @@ impl Resolver {
             preferred: ServerList::from_conf(&conf, |s| s.transport.is_preferred()),
             stream: ServerList::from_conf(&conf, |s| s.transport.is_stream()),
             options: conf.options,
+            lru_cache: Mutex::new(LruCache::with_expiry_duration(DEFAULT_CACHE_EXPIRE)),
         }
     }
 
@@ -72,8 +77,19 @@ impl Resolver {
             .await
     }
 
+    fn try_resolve_from_cache(&self, key: &str) -> Option<Vec<IpAddr>> {
+        self.lru_cache.lock().unwrap().get(key).cloned()
+    }
+
+    fn insert_into_cache(&self, key: &str, val: Vec<IpAddr>) {
+        self.lru_cache.lock().unwrap().insert(key.to_string(), val);
+    }
+
     pub async fn lookup_host<T: AsRef<str>>(&self, host: T) -> io::Result<Vec<IpAddr>> {
         let host = &host.as_ref();
+        if let Some(v) = self.try_resolve_from_cache(host) {
+            return Ok(v);
+        }
 
         let qname = &Dname::<Vec<u8>>::from_str(host)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
@@ -90,6 +106,7 @@ impl Resolver {
                 ips.push(record.data().addr().into());
             }
         }
+        self.insert_into_cache(host, ips.clone());
         Ok(ips)
     }
 
