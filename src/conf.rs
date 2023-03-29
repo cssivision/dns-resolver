@@ -123,13 +123,6 @@ impl ResolvConf {
             server.request_timeout = self.options.timeout
         }
     }
-
-    pub fn default() -> Self {
-        let mut res = ResolvConf::new();
-        let _ = res.parse_file("/etc/resolv.conf");
-        res.finalize();
-        res
-    }
 }
 
 fn parse_resolv_conf<T: AsRef<[u8]>>(data: T) -> io::Result<resolv_conf::Config> {
@@ -198,7 +191,10 @@ impl ResolvConf {
 
 impl Default for ResolvConf {
     fn default() -> Self {
-        Self::new()
+        let mut res = ResolvConf::new();
+        let _ = res.parse_file("/etc/resolv.conf");
+        res.finalize();
+        res
     }
 }
 

@@ -386,7 +386,7 @@ impl ServerInfo {
             #[cfg(feature = "tokio-runtime")]
             let binder = UdpSocket::bind(&local).await;
             #[cfg(not(feature = "tokio-runtime"))]
-            let binder = UdpSocket::bind(&local);
+            let binder = UdpSocket::bind(local);
             match binder {
                 Ok(sock) => return Ok(sock),
                 Err(err) => {
@@ -431,7 +431,7 @@ impl ServerList {
             servers: {
                 conf.servers
                     .iter()
-                    .filter(|f| filter(*f))
+                    .filter(|f| filter(f))
                     .map(Into::into)
                     .collect()
             },
