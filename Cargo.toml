@@ -13,7 +13,8 @@ edition = "2018"
 slings = { version = "0.3", optional = true }
 awak = { version = "0.2", optional = true }
 tokio = { version = "1", features = ["net", "io-util", "time"], optional = true }
-domain = "0.7"
+domain = "0.9"
+octseq = "0.3"
 resolv-conf = { version = "0.7.0", features = ["system"] }
 futures-util = { version = "0.3", default-features = false, features = ["io"], optional = true }
 lru_time_cache = "0.11"

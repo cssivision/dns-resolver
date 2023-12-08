@@ -10,10 +10,10 @@ use domain::base::iana::{Rcode, Rtype};
 use domain::base::message::Message;
 use domain::base::message_builder::{AdditionalBuilder, MessageBuilder, StreamTarget};
 use domain::base::name::{Dname, ToDname};
-use domain::base::octets::Octets512;
 use domain::base::question::Question;
 use domain::rdata::A;
 use lru_time_cache::LruCache;
+use octseq::array::Array;
 
 const DEFAULT_CACHE_EXPIRE: Duration = Duration::from_secs(10 * 60);
 
@@ -185,7 +185,7 @@ impl<'a> Query<'a> {
 
     fn create_message(question: Question<impl ToDname>) -> QueryMessage {
         let mut message =
-            MessageBuilder::from_target(StreamTarget::new(Octets512::new()).unwrap()).unwrap();
+            MessageBuilder::from_target(StreamTarget::new(Default::default()).unwrap()).unwrap();
         message.header_mut().set_rd(true);
         let mut message = message.question();
         message.push(question).unwrap();
@@ -246,7 +246,7 @@ impl<'a> Query<'a> {
     }
 }
 
-pub type QueryMessage = AdditionalBuilder<StreamTarget<Octets512>>;
+pub type QueryMessage = AdditionalBuilder<StreamTarget<Array<512>>>;
 
 #[derive(Clone)]
 pub struct Answer {
