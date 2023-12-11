@@ -17,27 +17,29 @@ use octseq::array::Array;
 
 const DEFAULT_CACHE_EXPIRE: Duration = Duration::from_secs(10 * 60);
 
-#[cfg(not(feature = "tokio-runtime"))]
-use futures_util::{AsyncReadExt, AsyncWriteExt};
-
-#[cfg(feature = "slings-runtime")]
-use slings::{
-    net::{TcpStream, UdpSocket},
-    time::timeout,
-};
-
-#[cfg(feature = "awak-runtime")]
-use awak::{
-    net::{TcpStream, UdpSocket},
-    time::timeout,
-};
-
-#[cfg(feature = "tokio-runtime")]
-use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
-    net::{TcpStream, UdpSocket},
-    time::timeout,
-};
+cfg_if::cfg_if! {
+    if #[cfg(feature = "slings-runtime")] {
+        use slings::{
+            net::{TcpStream, UdpSocket},
+            time::timeout,
+        };
+        use futures_util::{AsyncReadExt, AsyncWriteExt};
+    }
+    else if #[cfg(feature = "awak-runtime")] {
+        use awak::{
+            net::{TcpStream, UdpSocket},
+            time::timeout,
+        };
+        use futures_util::{AsyncReadExt, AsyncWriteExt};
+    }
+    else if #[cfg(feature = "tokio-runtime")] {
+        use tokio::{
+            io::{AsyncReadExt, AsyncWriteExt},
+            net::{TcpStream, UdpSocket},
+            time::timeout,
+        };
+    }
+}
 
 mod conf;
 
