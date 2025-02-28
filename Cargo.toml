@@ -3,8 +3,8 @@ name = "dns-resolver"
 version = "0.2.14"
 authors = ["cssivision <cssivision@gmail.com>"]
 license = "MIT"
-repository = "https://github.com/cssivision/dns-reolver"
-homepage = "https://github.com/cssivision/dns-reolver"
+repository = "https://github.com/cssivision/dns-resolver"
+homepage = "https://github.com/cssivision/dns-resolver"
 description = "dns resolver based on future"
 readme = "README.md"
 edition = "2018"
@@ -25,4 +25,3 @@ default = ["slings-runtime"]
 slings-runtime = ["slings", "futures-util"]
 awak-runtime = ["awak", "futures-util"]
 tokio-runtime = ["tokio"]
-
