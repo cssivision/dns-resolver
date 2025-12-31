@@ -1,6 +1,6 @@
 [package]
 name = "dns-resolver"
-version = "0.2.14"
+version = "0.2.15"
 authors = ["cssivision <cssivision@gmail.com>"]
 license = "MIT"
 repository = "https://github.com/cssivision/dns-reolver"
@@ -13,8 +13,7 @@ edition = "2018"
 slings = { version = "0.3", optional = true }
 awak = { version = "0.2", optional = true }
 tokio = { version = "1", features = ["net", "io-util", "time"], optional = true }
-domain = { version = "0.9", features = ["smallvec"] }
-octseq = "0.3"
+domain = { version = "0.11", features = ["smallvec"] }
 futures-util = { version = "0.3", default-features = false, features = ["io"], optional = true }
 lru_time_cache = "0.11"
 smallvec = "1"

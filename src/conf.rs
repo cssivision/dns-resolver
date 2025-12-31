@@ -8,7 +8,7 @@
 //!
 //! Both parts are modeled along the lines of glibc’s resolver.
 
-use domain::base::name::{self, Dname};
+use domain::base::name::{self, Name};
 use smallvec::SmallVec;
 use std::cmp::Ordering;
 use std::default::Default;
@@ -355,7 +355,7 @@ impl ResolvConf {
             self.servers.push(ServerConf::new(addr, Transport::Tcp));
         }
         if self.options.search.is_empty() {
-            self.options.search.push(Dname::root())
+            self.options.search.push(Name::root())
         }
         for server in &mut self.servers {
             server.request_timeout = self.options.timeout
@@ -598,7 +598,7 @@ impl fmt::Display for ResolvConf {
 
 //------------ SearchSuffix --------------------------------------------------
 
-pub type SearchSuffix = Dname<SmallVec<[u8; 24]>>;
+pub type SearchSuffix = Name<SmallVec<[u8; 24]>>;
 
 //------------ SearchList ----------------------------------------------------
 
@@ -617,7 +617,7 @@ impl SearchList {
     }
 
     pub fn push_root(&mut self) {
-        self.search.push(Dname::root())
+        self.search.push(Name::root())
     }
 
     pub fn len(&self) -> usize {

@@ -9,11 +9,10 @@ use std::time::Duration;
 use domain::base::iana::{Rcode, Rtype};
 use domain::base::message::Message;
 use domain::base::message_builder::{AdditionalBuilder, MessageBuilder, StreamTarget};
-use domain::base::name::{Dname, ToDname};
+use domain::base::name::{Name, ToName};
 use domain::base::question::Question;
 use domain::rdata::A;
 use lru_time_cache::LruCache;
-use octseq::array::Array;
 
 const DEFAULT_CACHE_EXPIRE: Duration = Duration::from_secs(10 * 60);
 
@@ -73,7 +72,7 @@ impl Resolver {
         &self.options
     }
 
-    pub async fn query<N: ToDname, Q: Into<Question<N>>>(&self, question: Q) -> io::Result<Answer> {
+    pub async fn query<N: ToName, Q: Into<Question<N>>>(&self, question: Q) -> io::Result<Answer> {
         Query::new(self)?
             .run(Query::create_message(question.into()))
             .await
@@ -93,7 +92,7 @@ impl Resolver {
             return Ok(v);
         }
 
-        let qname = &Dname::<Vec<u8>>::from_str(host)
+        let qname = &Name::<Vec<u8>>::from_str(host)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
         let answer = self.query((&qname, Rtype::A)).await?;
         let name = answer.canonical_name();
@@ -157,12 +156,12 @@ impl<'a> Query<'a> {
         loop {
             match self.run_query(&mut message).await {
                 Ok(answer) => {
-                    if answer.header().rcode() == Rcode::FormErr
+                    if answer.header().rcode() == Rcode::FORMERR
                         && self.current_server().does_edns()
                     {
                         self.current_server().disable_edns();
                         continue;
-                    } else if answer.header().rcode() == Rcode::ServFail {
+                    } else if answer.header().rcode() == Rcode::SERVFAIL {
                         self.update_error_servfail(answer);
                     } else if answer.header().tc()
                         && self.preferred
@@ -185,9 +184,9 @@ impl<'a> Query<'a> {
         }
     }
 
-    fn create_message(question: Question<impl ToDname>) -> QueryMessage {
+    fn create_message(question: Question<impl ToName>) -> QueryMessage {
         let mut message =
-            MessageBuilder::from_target(StreamTarget::new(Default::default()).unwrap()).unwrap();
+            MessageBuilder::from_target(StreamTarget::new_vec()).unwrap();
         message.header_mut().set_rd(true);
         let mut message = message.question();
         message.push(question).unwrap();
@@ -248,7 +247,7 @@ impl<'a> Query<'a> {
     }
 }
 
-pub type QueryMessage = AdditionalBuilder<StreamTarget<Array<512>>>;
+pub type QueryMessage = AdditionalBuilder<StreamTarget<Vec<u8>>>;
 
 #[derive(Clone)]
 pub struct Answer {
@@ -257,8 +256,8 @@ pub struct Answer {
 
 impl Answer {
     pub fn is_final(&self) -> bool {
-        (self.message.header().rcode() == Rcode::NoError
-            || self.message.header().rcode() == Rcode::NXDomain)
+        (self.message.header().rcode() == Rcode::NOERROR
+            || self.message.header().rcode() == Rcode::NXDOMAIN)
             && !self.message.header().tc()
     }
 
@@ -453,7 +452,7 @@ impl ServerList {
         res
     }
 
-    pub fn iter(&self) -> ServerListIter {
+    pub fn iter(&self) -> ServerListIter<'_> {
         ServerListIter::new(self)
     }
 
