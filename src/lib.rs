@@ -185,8 +185,7 @@ impl<'a> Query<'a> {
     }
 
     fn create_message(question: Question<impl ToName>) -> QueryMessage {
-        let mut message =
-            MessageBuilder::from_target(StreamTarget::new_vec()).unwrap();
+        let mut message = MessageBuilder::from_target(StreamTarget::new_vec()).unwrap();
         message.header_mut().set_rd(true);
         let mut message = message.question();
         message.push(question).unwrap();
@@ -342,7 +341,7 @@ impl ServerInfo {
                     return Ok(answer.into());
                 }
             } else {
-                return Err(io::Error::new(io::ErrorKind::Other, "short buf"));
+                return Err(io::Error::other("short buf"));
             }
         }
     }
@@ -359,7 +358,7 @@ impl ServerInfo {
         sock.connect(addr)?;
         let sent = sock.send(query.as_target().as_dgram_slice()).await?;
         if sent != query.as_target().as_dgram_slice().len() {
-            return Err(io::Error::new(io::ErrorKind::Other, "short UDP send"));
+            return Err(io::Error::other("short UDP send"));
         }
         loop {
             let mut buf = vec![0; recv_size];
