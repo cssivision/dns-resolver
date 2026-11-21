@@ -13,3 +13,4 @@ awak = "0.2.45"
 domain = { version = "0.12", features = ["smallvec"] }
 futures-util = { version = "0.3", default-features = false, features = ["io"] }
 smallvec = "1"
+lru_cache = { git = "https://github.com/cssivision/lru_cache.git" }
