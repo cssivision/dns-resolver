@@ -1,44 +1,28 @@
+use std::collections::HashMap;
 use std::io;
 use std::net::{IpAddr, SocketAddr};
 use std::ops::Deref;
 use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 
+use awak::{
+    net::{TcpStream, UdpSocket},
+    time::{delay_for, timeout},
+};
 use domain::base::iana::{Rcode, Rtype};
 use domain::base::message::Message;
 use domain::base::message_builder::{AdditionalBuilder, MessageBuilder, StreamTarget};
 use domain::base::name::{Name, ToName};
 use domain::base::question::Question;
 use domain::rdata::A;
-use lru_time_cache::LruCache;
+use futures_util::lock::Mutex;
+use futures_util::{AsyncReadExt, AsyncWriteExt};
 
 const DEFAULT_CACHE_EXPIRE: Duration = Duration::from_secs(10 * 60);
-
-cfg_if::cfg_if! {
-    if #[cfg(feature = "slings-runtime")] {
-        use slings::{
-            net::{TcpStream, UdpSocket},
-            time::timeout,
-        };
-        use futures_util::{AsyncReadExt, AsyncWriteExt};
-    }
-    else if #[cfg(feature = "awak-runtime")] {
-        use awak::{
-            net::{TcpStream, UdpSocket},
-            time::timeout,
-        };
-        use futures_util::{AsyncReadExt, AsyncWriteExt};
-    }
-    else if #[cfg(feature = "tokio-runtime")] {
-        use tokio::{
-            io::{AsyncReadExt, AsyncWriteExt},
-            net::{TcpStream, UdpSocket},
-            time::timeout,
-        };
-    }
-}
+const CACHE_CLEANUP_INTERVAL: Duration = Duration::from_secs(60);
+const MAX_CACHE_ENTRIES: usize = 1024;
 
 mod conf;
 
@@ -47,11 +31,57 @@ use conf::{ServerConf, Transport};
 
 const RETRY_RANDOM_PORT: usize = 10;
 
+struct CacheEntry {
+    ips: Vec<IpAddr>,
+    last_used: Instant,
+}
+
+struct DnsCache {
+    entries: HashMap<String, CacheEntry>,
+}
+
+impl DnsCache {
+    fn get(&mut self, key: &str) -> Option<Vec<IpAddr>> {
+        let entry = self.entries.get_mut(key)?;
+        entry.last_used = Instant::now();
+        Some(entry.ips.clone())
+    }
+
+    fn insert(&mut self, key: String, ips: Vec<IpAddr>) {
+        if self.entries.len() >= MAX_CACHE_ENTRIES {
+            self.evict_oldest();
+        }
+        self.entries.insert(
+            key,
+            CacheEntry {
+                ips,
+                last_used: Instant::now(),
+            },
+        );
+    }
+
+    fn remove_expired(&mut self) {
+        self.entries
+            .retain(|_, entry| entry.last_used.elapsed() < DEFAULT_CACHE_EXPIRE);
+    }
+
+    fn evict_oldest(&mut self) {
+        if let Some(key) = self
+            .entries
+            .iter()
+            .min_by_key(|(_, entry)| entry.last_used)
+            .map(|(key, _)| key.clone())
+        {
+            self.entries.remove(&key);
+        }
+    }
+}
+
 pub struct Resolver {
     preferred: ServerList,
     stream: ServerList,
     options: ResolvOptions,
-    lru_cache: Mutex<LruCache<String, Vec<IpAddr>>>,
+    cache: Arc<Mutex<DnsCache>>,
 }
 
 impl Resolver {
@@ -60,11 +90,26 @@ impl Resolver {
     }
 
     pub fn from_conf(conf: ResolvConf) -> Self {
+        let cache = Arc::new(Mutex::new(DnsCache {
+            entries: HashMap::new(),
+        }));
+        let weak_cache = Arc::downgrade(&cache);
+        awak::spawn(async move {
+            loop {
+                delay_for(CACHE_CLEANUP_INTERVAL).await;
+                let Some(cache) = weak_cache.upgrade() else {
+                    break;
+                };
+                cache.lock().await.remove_expired();
+            }
+        })
+        .detach();
+
         Resolver {
             preferred: ServerList::from_conf(&conf, |s| s.transport.is_preferred()),
             stream: ServerList::from_conf(&conf, |s| s.transport.is_stream()),
             options: conf.options,
-            lru_cache: Mutex::new(LruCache::with_expiry_duration(DEFAULT_CACHE_EXPIRE)),
+            cache,
         }
     }
 
@@ -78,17 +123,17 @@ impl Resolver {
             .await
     }
 
-    fn try_resolve_from_cache(&self, key: &str) -> Option<Vec<IpAddr>> {
-        self.lru_cache.lock().unwrap().get(key).cloned()
+    async fn try_resolve_from_cache(&self, key: &str) -> Option<Vec<IpAddr>> {
+        self.cache.lock().await.get(key)
     }
 
-    fn insert_into_cache(&self, key: &str, val: Vec<IpAddr>) {
-        self.lru_cache.lock().unwrap().insert(key.to_string(), val);
+    async fn insert_into_cache(&self, key: &str, val: Vec<IpAddr>) {
+        self.cache.lock().await.insert(key.to_string(), val);
     }
 
     pub async fn lookup_host<T: AsRef<str>>(&self, host: T) -> io::Result<Vec<IpAddr>> {
         let host = &host.as_ref();
-        if let Some(v) = self.try_resolve_from_cache(host) {
+        if let Some(v) = self.try_resolve_from_cache(host).await {
             return Ok(v);
         }
 
@@ -107,7 +152,7 @@ impl Resolver {
                 ips.push(record.data().addr().into());
             }
         }
-        self.insert_into_cache(host, ips.clone());
+        self.insert_into_cache(host, ips.clone()).await;
         Ok(ips)
     }
 
@@ -352,9 +397,6 @@ impl ServerInfo {
         recv_size: usize,
     ) -> io::Result<Answer> {
         let sock = Self::udp_bind(addr.is_ipv4()).await?;
-        #[cfg(not(feature = "awak-runtime"))]
-        sock.connect(addr).await?;
-        #[cfg(feature = "awak-runtime")]
         sock.connect(addr)?;
         let sent = sock.send(query.as_target().as_dgram_slice()).await?;
         if sent != query.as_target().as_dgram_slice().len() {
@@ -383,9 +425,6 @@ impl ServerInfo {
             } else {
                 ([0u16; 8], 0).into()
             };
-            #[cfg(feature = "tokio-runtime")]
-            let binder = UdpSocket::bind(&local).await;
-            #[cfg(not(feature = "tokio-runtime"))]
             let binder = UdpSocket::bind(local);
             match binder {
                 Ok(sock) => return Ok(sock),
@@ -550,5 +589,57 @@ impl Deref for Answer {
 impl AsRef<Message<Vec<u8>>> for Answer {
     fn as_ref(&self) -> &Message<Vec<u8>> {
         &self.message
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cache_get_returns_inserted_entry() {
+        let mut cache = DnsCache {
+            entries: HashMap::new(),
+        };
+        let ip: IpAddr = "1.2.3.4".parse().unwrap();
+        cache.insert("example.com".into(), vec![ip]);
+        assert_eq!(cache.get("example.com"), Some(vec![ip]));
+        assert_eq!(cache.get("other.com"), None);
+    }
+
+    #[test]
+    fn cache_remove_expired_drops_entry() {
+        let mut cache = DnsCache {
+            entries: HashMap::new(),
+        };
+        let ip: IpAddr = "1.2.3.4".parse().unwrap();
+        cache.insert("example.com".into(), vec![ip]);
+        cache.entries.get_mut("example.com").unwrap().last_used = Instant::now()
+            .checked_sub(DEFAULT_CACHE_EXPIRE + Duration::from_secs(1))
+            .unwrap();
+        cache.remove_expired();
+        assert!(!cache.entries.contains_key("example.com"));
+    }
+
+    #[test]
+    fn cache_insert_evicts_oldest_entry() {
+        let mut cache = DnsCache {
+            entries: HashMap::new(),
+        };
+        let now = Instant::now();
+        for i in 0..MAX_CACHE_ENTRIES {
+            let age = Duration::from_millis((MAX_CACHE_ENTRIES - i) as u64);
+            cache.entries.insert(
+                format!("k{i}"),
+                CacheEntry {
+                    ips: vec![],
+                    last_used: now.checked_sub(age).unwrap(),
+                },
+            );
+        }
+        cache.insert("new".into(), vec![]);
+        assert_eq!(cache.entries.len(), MAX_CACHE_ENTRIES);
+        assert!(!cache.entries.contains_key("k0"));
+        assert!(cache.entries.contains_key("new"));
     }
 }

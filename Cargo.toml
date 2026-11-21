@@ -1,27 +1,15 @@
 [package]
 name = "dns-resolver"
-version = "0.2.16"
+version = "0.3.0"
 authors = ["cssivision <cssivision@gmail.com>"]
 license = "MIT"
 repository = "https://github.com/cssivision/dns-reolver"
-homepage = "https://github.com/cssivision/dns-reolver"
 description = "dns resolver based on future"
 readme = "README.md"
 edition = "2018"
 
 [dependencies]
-slings = { version = "0.3", optional = true }
-awak = { version = "0.2", optional = true }
-tokio = { version = "1", features = ["net", "io-util", "time"], optional = true }
+awak = "0.2.45"
 domain = { version = "0.12", features = ["smallvec"] }
-futures-util = { version = "0.3", default-features = false, features = ["io"], optional = true }
-lru_time_cache = "0.11"
+futures-util = { version = "0.3", default-features = false, features = ["io"] }
 smallvec = "1"
-cfg-if = "1"
-
-[features]
-default = ["slings-runtime"]
-slings-runtime = ["slings", "futures-util"]
-awak-runtime = ["awak", "futures-util"]
-tokio-runtime = ["tokio"]
-

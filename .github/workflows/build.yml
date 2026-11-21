@@ -11,18 +11,7 @@ env:
 
 jobs:
   build:
-    name: build (${{ matrix.name }})
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: slings
-            args: ""
-          - name: awak
-            args: "--no-default-features --features awak-runtime"
-          - name: tokio
-            args: "--no-default-features --features tokio-runtime"
 
     steps:
     - uses: actions/checkout@v4
@@ -33,13 +22,13 @@ jobs:
         components: clippy
 
     - name: Build
-      run: cargo build --verbose ${{ matrix.args }}
+      run: cargo build --verbose
 
     - name: Test
-      run: cargo test --verbose ${{ matrix.args }}
+      run: cargo test --verbose
 
     - name: Clippy
-      run: cargo clippy ${{ matrix.args }} -- -D warnings
+      run: cargo clippy -- -D warnings
 
   fmt:
     name: fmt
